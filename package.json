@@ -1,0 +1,28 @@
+{
+  "name": "attention-monitor",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Local-first, zero-API-key webcam attention monitor. Face landmarks + geometric gaze estimation running entirely in the browser.",
+  "scripts": {
+    "prepare:assets": "node scripts/prepare-assets.mjs --strict",
+    "postinstall": "node scripts/prepare-assets.mjs",
+    "dev": "vite",
+    "build": "node scripts/prepare-assets.mjs --strict && vite build",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "vite": "^8.3.0",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>inference smoke test</title>
+  </head>
+  <body>
+    <!--
+      TEMPORARY dev-only harness (not part of the app, not in the build).
+      Vite builds only index.html, so this file is never shipped.
+
+      It answers the one question the unit tests cannot: does the real MediaPipe model
+      load from our local assets and produce real landmarks in a real browser? It then
+      feeds those real landmarks through our own estimator and prints the numbers, so
+      the pose gains can be sanity-checked against a real face instead of only against
+      synthetic geometry.
+    -->
+    <pre id="out">pending</pre>
+    <script type="module">
+      import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+      import {
+        computeNeutralFromSamples,
+        estimateAttention,
+        extractFaceSignals,
+      } from "/src/vision/attentionEstimator.js";
+
+      const out = document.getElementById("out");
+      const log = (label, value) => {
+        out.textContent += `\n${label}: ${JSON.stringify(value)}`;
+      };
+
+      const THRESHOLDS = {
+        yawThresholdDeg: 22,
+        pitchThresholdDeg: 18,
+        gazeXThreshold: 0.26,
+        gazeYThreshold: 0.3,
+      };
+      const ZERO_NEUTRAL = {
+        yawRatio: 0,
+        pitchRatio: 0,
+        rollDeg: 0,
+        gazeX: 0,
+        gazeY: 0,
+      };
+
+      try {
+        const fileset = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
+        const landmarker = await FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: {
+            modelAssetPath: "/models/face_landmarker.task",
+            delegate: "CPU",
+          },
+          runningMode: "IMAGE",
+          numFaces: 2,
+        });
+        log("modelLoaded", true);
+
+        const image = new Image();
+        image.src = "/__smoke/portrait.jpg";
+        await image.decode();
+        log("imageSize", [image.naturalWidth, image.naturalHeight]);
+
+        const result = landmarker.detect(image);
+        log("facesDetected", result.faceLandmarks.length);
+
+        const face = result.faceLandmarks[0];
+        log("landmarksPerFace", face ? face.length : 0);
+
+        if (face) {
+          const signals = extractFaceSignals(face);
+          log("rawYawRatio", Number(signals.yawRatio.toFixed(4)));
+          log("rawPitchRatio", Number(signals.pitchRatio.toFixed(4)));
+          log("rollDeg", Number(signals.rollDeg.toFixed(2)));
+          log("rawGazeX", signals.gazeX === null ? null : Number(signals.gazeX.toFixed(3)));
+          log("rawGazeY", signals.gazeY === null ? null : Number(signals.gazeY.toFixed(3)));
+
+          // Against a zero baseline: exposes the absolute bias of the measurement.
+          const uncalibrated = estimateAttention(signals, ZERO_NEUTRAL, THRESHOLDS);
+          log("yawDeg_unc", Number(uncalibrated.yawDeg.toFixed(2)));
+          log("pitchDeg_unc", Number(uncalibrated.pitchDeg.toFixed(2)));
+
+          // Against a self-calibrated baseline: must be LOOKING_AT_CAMERA.
+          const calibrated = estimateAttention(
+            signals,
+            computeNeutralFromSamples([signals]),
+            THRESHOLDS,
+          );
+          log("lookingAtCamera_calibrated", calibrated.isLookingAtCamera);
+          log("avertedReasons", calibrated.avertedReasons);
+        }
+
+        log("RESULT", face ? "PASS" : "NO_FACE_IN_TEST_IMAGE");
+      } catch (error) {
+        log("RESULT", "FAIL");
+        log("error", String((error && error.stack) || error));
+      }
+    </script>
+  </body>
+</html>
