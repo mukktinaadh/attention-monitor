@@ -6,12 +6,10 @@
   "installCommand": "npm install",
   "headers": [
     {
-      "comment": "WebAssembly.instantiateStreaming refuses a stream whose Content-Type is not application/wasm. Declaring it here removes a whole class of 'incorrect MIME type' failures on a host that does not infer the type itself.",
       "source": "/mediapipe/wasm/(.*)\\.wasm",
       "headers": [{ "key": "Content-Type", "value": "application/wasm" }]
     },
     {
-      "comment": "The runtime and the model are versioned by the npm dependency / model URL, so they can be cached permanently and immutably.",
       "source": "/mediapipe/wasm/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
